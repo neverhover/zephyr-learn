@@ -515,15 +515,18 @@ void OLED_ShowString(u8_t x,u8_t y,const u8_t *p,u8_t size)
 
 void oled_init(){
     
-    struct device *clk = device_get_binding(STM32_CLOCK_CONTROL_NAME);
-    struct stm32_pclken pclken;
-    pclken.bus = STM32_CLOCK_BUS_AHB1,
-    pclken.enr = LL_AHB1_GRP1_PERIPH_GPIOE;
+    // struct device *clk = device_get_binding(STM32_CLOCK_CONTROL_NAME);
+    // struct stm32_pclken pclken;
+    // pclken.bus = STM32_CLOCK_BUS_AHB1,
+    // pclken.enr = LL_AHB1_GRP1_PERIPH_GPIOE;
 
-    /* Enable SYSCFG clock */
-    clock_control_on(clk, (clock_control_subsys_t *) &pclken);
+    // /* Enable SYSCFG clock */
+    // clock_control_on(clk, (clock_control_subsys_t *) &pclken);
 
+    // gpioe = device_get_binding("GPIOE");
     
+    // gpio_pin_configure(gpioe, LED1, GPIO_DIR_OUT);
+    // gpio_pin_configure(gpioe, LED2, GPIO_DIR_OUT);
 #if 0
     LL_GPIO_InitTypeDef GPIO_InitStruct;
 	LL_GPIO_StructInit(&GPIO_InitStruct);

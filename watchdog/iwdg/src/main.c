@@ -62,6 +62,14 @@ void main(void)
 {
 	int i = 0;
 
+	uint32_t uid_low = LL_GetUID_Word0();
+	uint32_t uid_medium = LL_GetUID_Word1();
+	uint32_t uid_high = LL_GetUID_Word2();
+	uint16_t flash_size = LL_GetFlashSize();
+
+	printk("======= Device UID : %d-%d-%d\n", uid_high, uid_medium, uid_low);
+	printk("======= Device Flash Size : %d\n", flash_size);
+
 	static struct gpio_callback gpio_btn0_cb;
 
 	gpioe = device_get_binding(SW0_PORT);
@@ -90,7 +98,7 @@ void main(void)
 	//Init LED
 	gpio_pin_configure(gpioa, LED1_PIN, GPIO_DIR_OUT);
 	gpio_pin_configure(gpioa, LED2_PIN, GPIO_DIR_OUT);
-	gpio_pin_write(gpioa, LED1_PIN, 0);
+	gpio_pin_write(gpioa, LED1_PIN, 1);
 	gpio_pin_write(gpioa, LED2_PIN, 0);
 
 	//Init IWDG
