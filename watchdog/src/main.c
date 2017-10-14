@@ -1,14 +1,14 @@
 /*
- * Copyright (c) 2016 Open-RnD Sp. z o.o.
+ * Copyright (c) 2015 Intel Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <zephyr.h>
-#include <board.h>
-#include <device.h>
 #include <gpio.h>
-#include <misc/util.h>
+#include <device.h>
+#include <watchdog.h>
+#include "board.h"
 #include <misc/printk.h>
 
 #define SW0_PORT "GPIOE"
@@ -30,6 +30,7 @@
 
 struct device *gpioe;
 struct device *gpioa;
+struct device *wdt_dev;
 
 void button_0_pressed(struct device *gpio, struct gpio_callback *cb,
 					  u32_t pins)
@@ -48,25 +49,20 @@ void button_0_pressed(struct device *gpio, struct gpio_callback *cb,
 		gpio_pin_read(gpioa, LED2_PIN, &val);
 		gpio_pin_write(gpioa, LED2_PIN, !val);
 	}else if (pins & BIT(KEY_UP_PIN)){
-		printk("KEY_UP PUSHED\n");
+		printk("KEY_UP pushed and reload IWDG\n");
 		gpio_pin_read(gpioa, LED1_PIN, &val);
 		gpio_pin_write(gpioa, LED1_PIN, !val);
 		gpio_pin_write(gpioa, LED2_PIN, val);
+		wdt_reload(wdt_dev);
 	}
 }
 
-// void button_1_pressed(struct device *gpioe, struct gpio_callback *cb,
-// 					  u32_t pins)
-// {
-// 	gpio_pin_write(gpioa, LED2_PIN, val);
-// 	gpio_pin_write(gpioa, LED1_PIN, !val);
-// 	val = !val;
-// }
 
 void main(void)
 {
+	int i = 0;
+
 	static struct gpio_callback gpio_btn0_cb;
-	// static struct gpio_callback gpio_btn1_cb;
 
 	gpioe = device_get_binding(SW0_PORT);
 	if (!gpioe)
@@ -96,4 +92,24 @@ void main(void)
 	gpio_pin_configure(gpioa, LED2_PIN, GPIO_DIR_OUT);
 	gpio_pin_write(gpioa, LED1_PIN, 0);
 	gpio_pin_write(gpioa, LED2_PIN, 0);
+
+	//Init IWDG
+	printk("Start watchdog test\n");
+	wdt_dev = device_get_binding("IWDG");
+	if(!wdt_dev){
+		printk("Get device error\n");
+		return ;
+	}
+	printk("Get watchdog device %s OK\n", "IWDG");
+	printk("IWDG pr=%d,reload=%d\n", CONFIG_IWDG_STM32_PRESCALER, CONFIG_IWDG_STM32_RELOAD_COUNTER);
+	wdt_enable(wdt_dev);
+
+#if 1
+	while(1){
+		//wdt_reload(wdt_dev);
+		printk("Passed %d secs\n",i);
+		k_sleep(1000);
+		i = i + 1;
+	}
+#endif
 }

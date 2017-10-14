@@ -1,14 +1,14 @@
 /*
- * Copyright (c) 2016 Open-RnD Sp. z o.o.
+ * Copyright (c) 2015 Intel Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <zephyr.h>
-#include <board.h>
-#include <device.h>
 #include <gpio.h>
-#include <misc/util.h>
+#include <device.h>
+#include <watchdog.h>
+#include "board.h"
 #include <misc/printk.h>
 
 #define SW0_PORT "GPIOE"
@@ -30,6 +30,10 @@
 
 struct device *gpioe;
 struct device *gpioa;
+struct device *wdt_dev;
+
+void button_0_pressed(struct device *gpio, struct gpio_callback *cb,
+	u32_t pins);
 
 void button_0_pressed(struct device *gpio, struct gpio_callback *cb,
 					  u32_t pins)
@@ -48,26 +52,16 @@ void button_0_pressed(struct device *gpio, struct gpio_callback *cb,
 		gpio_pin_read(gpioa, LED2_PIN, &val);
 		gpio_pin_write(gpioa, LED2_PIN, !val);
 	}else if (pins & BIT(KEY_UP_PIN)){
-		printk("KEY_UP PUSHED\n");
+		printk("KEY_UP pushed and reload WWDG\n");
 		gpio_pin_read(gpioa, LED1_PIN, &val);
 		gpio_pin_write(gpioa, LED1_PIN, !val);
 		gpio_pin_write(gpioa, LED2_PIN, val);
+		wdt_reload(wdt_dev);
 	}
 }
 
-// void button_1_pressed(struct device *gpioe, struct gpio_callback *cb,
-// 					  u32_t pins)
-// {
-// 	gpio_pin_write(gpioa, LED2_PIN, val);
-// 	gpio_pin_write(gpioa, LED1_PIN, !val);
-// 	val = !val;
-// }
-
-void main(void)
-{
+void init_led(){
 	static struct gpio_callback gpio_btn0_cb;
-	// static struct gpio_callback gpio_btn1_cb;
-
 	gpioe = device_get_binding(SW0_PORT);
 	if (!gpioe)
 	{
@@ -94,6 +88,61 @@ void main(void)
 	//Init LED
 	gpio_pin_configure(gpioa, LED1_PIN, GPIO_DIR_OUT);
 	gpio_pin_configure(gpioa, LED2_PIN, GPIO_DIR_OUT);
-	gpio_pin_write(gpioa, LED1_PIN, 0);
+	gpio_pin_write(gpioa, LED1_PIN, 1);
 	gpio_pin_write(gpioa, LED2_PIN, 0);
+
+}
+
+void print_device_info(){
+	uint32_t uid_low = LL_GetUID_Word0();
+	uint32_t uid_medium = LL_GetUID_Word1();
+	uint32_t uid_high = LL_GetUID_Word2();
+	uint16_t flash_size = LL_GetFlashSize();
+
+	printk("======= Device UID : %d-%d-%d\n", uid_high, uid_medium, uid_low);
+	printk("======= Device Flash Size : %d\n", flash_size);
+
+}
+
+/* WDT Requires a callback, there is no interrupt enable / disable. */
+void wdt_wwdg_cb(struct device *dev){
+	//每次中断发生的时候需要reload，刷新一下相关部分
+	wdt_reload(dev);
+	int val =0;
+	gpio_pin_read(gpioa, LED1_PIN, &val);
+                gpio_pin_write(gpioa, LED1_PIN, !val);
+                gpio_pin_write(gpioa, LED2_PIN, val);
+	//printk("STM32 window watchdog fired\n");
+	
+}
+
+void main(void)
+{
+
+	struct wdt_config wr_cfg;
+	
+
+	print_device_info();
+	init_led();
+	
+	//Init WWDG
+	printk("Start watchdog test\n");
+	wdt_dev = device_get_binding("WWDG_STM32");
+	if(!wdt_dev){
+		printk("Get device WWDG_STM32 error\n");
+		return ;
+	}
+	printk("Get watchdog device %s OK\n", "WWDG_STM32");
+
+	
+	wr_cfg.timeout = 0x47;
+	wr_cfg.mode = WDT_MODE_INTERRUPT_RESET;
+	wr_cfg.interrupt_fn = wdt_wwdg_cb;
+
+	wdt_set_config(wdt_dev, &wr_cfg);
+	wdt_enable(wdt_dev);
+	while(1){
+		wdt_wwdg_cb(wdt_dev);
+		k_sleep(10);
+	}
 }
